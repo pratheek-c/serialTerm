@@ -1,12 +1,7 @@
 import { TextAttributes, t, bold, fg } from "@opentui/core";
-import { useKeyboard } from "@opentui/react";
-import { useState, useCallback, useRef, useEffect } from "react";
-import { Header } from "../components/ui/Header";
-import { Badge } from "../components/ui/Badge";
-import { Modal, ModalHelp } from "../components/ui/Modal";
-import { StatusBar } from "../components/ui/StatusBar";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { useState, useCallback } from "react";
 import { useSerialTerminal } from "../hooks/useSerialTerminal";
-import { useResponsive } from "../hooks/useResponsive";
 import type { ComPortInfo, BaudRate } from "../types";
 import { BAUD_RATES, theme } from "../types";
 
@@ -16,23 +11,33 @@ interface TerminalScreenProps {
 }
 
 /**
- * TerminalScreen — full macOS Terminal emulation for serial communication.
+ * TerminalScreen — full-screen Cyberpunk serial terminal.
  *
- * The output area looks and feels like a real terminal window:
- * - Pure black background
- * - Green/cyan/amber text for different message types
- * - Box-drawing header with port info
- * - Responsive input bar at the bottom when connected
- * - Baud rate selector modal overlay
+ * Layout:
+ * ┌─────────────────────────────────────────────┐
+ * │ >_ TERMINAL — COM3       ● CONNECTED 9600   │
+ * ├─────────────────────────────────────────────┤
+ * │ ┌─ COM3 ────────────────────────────────┐   │
+ * │ │ FTDI USB Serial Port                  │   │
+ * │ │ Baud: 9600                            │   │
+ * │ ├───────────────────────────────────────┤   │
+ * │ │ [14:23:10] ✓ Connected                │   │
+ * │ │ → AT                                  │   │
+ * │ │ ← OK                                  │   │
+ * │ │                                       │   │
+ * │ │ $ command_here                        │   │
+ * │ └───────────────────────────────────────┘   │
+ * ├─────────────────────────────────────────────┤
+ * │ Tab Baud │ Enter Connect │ Esc Back         │
+ * └─────────────────────────────────────────────┘
  */
 export function TerminalScreen({ port, onBack }: TerminalScreenProps) {
-  const resp = useResponsive();
+  const dims = useTerminalDimensions();
   const terminal = useSerialTerminal({ port });
   const [showBaudSelector, setShowBaudSelector] = useState(false);
   const [baudSelectorIndex, setBaudSelectorIndex] = useState(
     BAUD_RATES.indexOf(terminal.baudRate as BaudRate),
   );
-  const outputRef = useRef<HTMLDivElement>(null);
 
   const handleSend = useCallback(() => {
     terminal.send(terminal.command);
@@ -50,7 +55,6 @@ export function TerminalScreen({ port, onBack }: TerminalScreenProps) {
   }, [baudSelectorIndex, terminal]);
 
   useKeyboard((key) => {
-    // Baud selector mode
     if (showBaudSelector) {
       if (key.name === "up" || key.name === "k")
         setBaudSelectorIndex((p) => Math.max(0, p - 1));
@@ -61,26 +65,22 @@ export function TerminalScreen({ port, onBack }: TerminalScreenProps) {
       return;
     }
 
-    // Escape: disconnect + go back
     if (key.name === "escape") {
       terminal.disconnect();
       onBack();
       return;
     }
 
-    // Connected: send on Enter
     if (terminal.connected) {
       if (key.name === "return" && terminal.command.trim()) handleSend();
       return;
     }
 
-    // Disconnected: connect / baud selector
     if (key.name === "return") terminal.connect();
     else if (key.name === "tab") handleOpenBaudSelector();
   });
 
-  // ─── Box-drawing header (responsive width) ───
-  const headerWidth = resp.isSmall ? resp.width - 6 : 48;
+  const termWidth = Math.min(dims.width - 4, 72);
 
   return (
     <box
@@ -88,17 +88,36 @@ export function TerminalScreen({ port, onBack }: TerminalScreenProps) {
       flexDirection="column"
       backgroundColor={theme.bg.base}
     >
-      {/* ── Terminal title bar ── */}
-      <Header
-        icon="🔌"
-        title={`Terminal — ${port.name}`}
-        rightContent={
-          terminal.connected ? "● CONNECTED" : "○ DISCONNECTED"
-        }
-        rightLabel={`${terminal.baudRate} baud`}
-      />
+      {/* ── Terminal header bar ── */}
+      <box
+        height={3}
+        backgroundColor={theme.bg.header}
+        alignItems="center"
+        justifyContent="space-between"
+        paddingLeft={3}
+        paddingRight={3}
+        borderStyle="single"
+        borderColor={theme.border.muted}
+      >
+        <box alignItems="center" gap={2}>
+          <text content=">_" fg={theme.fg.accent} attributes={TextAttributes.BOLD} />
+          <text
+            content={`TERMINAL — ${port.name}`}
+            fg={theme.fg.default}
+            attributes={TextAttributes.BOLD}
+          />
+        </box>
+        <box alignItems="center" gap={3}>
+          <text
+            content={terminal.connected ? "● CONNECTED" : "○ DISCONNECTED"}
+            fg={terminal.connected ? theme.fg.success : theme.fg.danger}
+            attributes={TextAttributes.BOLD}
+          />
+          <text content={`${terminal.baudRate} baud`} fg={theme.fg.muted} />
+        </box>
+      </box>
 
-      {/* ── Terminal output area (pure terminal black) ── */}
+      {/* ── Terminal body (pure black) ── */}
       <box
         flexGrow={1}
         flexDirection="column"
@@ -108,112 +127,118 @@ export function TerminalScreen({ port, onBack }: TerminalScreenProps) {
         paddingTop={1}
         paddingBottom={1}
       >
-        {/* ── Port info banner (box-drawing characters) ── */}
+        {/* ── Terminal frame ── */}
         <text
           content={t`${fg(theme.border.terminal)(
-            `┌─ ${port.name} ─────────────────────────────────────────────┐`,
+            `┌─ ${port.name} ${"─".repeat(Math.max(0, termWidth - port.name.length - 6))}┐`,
           )}`}
         />
         <text
-          content={t`${fg(theme.border.terminal)("│")}  ${fg(theme.fg.muted)(
-            port.description,
-          )}${fg(theme.border.terminal)(" ".repeat(
-            Math.max(0, headerWidth - port.description.length - 6),
-          ))}${fg(theme.border.terminal)("│")}`}
+          content={t`${fg(theme.border.terminal)("│")}  ${fg(theme.fg.muted)(port.description)}${" ".repeat(Math.max(0, termWidth - port.description.length - 10))}${fg(theme.border.terminal)("│")}`}
         />
         <text
-          content={t`${fg(theme.border.terminal)("│")}  Baud Rate: ${fg(
-            theme.fg.accent,
-          )(String(terminal.baudRate))}${fg(theme.border.terminal)(
-            " ".repeat(
-              Math.max(
-                0,
-                headerWidth -
-                  String(terminal.baudRate).length -
-                  16,
-              ),
-            ),
-          )}${fg(theme.border.terminal)("│")}`}
+          content={t`${fg(theme.border.terminal)("│")}  Baud: ${fg(theme.fg.accent)(String(terminal.baudRate))}${" ".repeat(Math.max(0, termWidth - String(terminal.baudRate).length - 14))}${fg(theme.border.terminal)("│")}`}
         />
         <text
           content={t`${fg(theme.border.terminal)(
-            `└${"─".repeat(headerWidth - 2)}┘`,
+            `├${"─".repeat(termWidth)}┤`,
           )}`}
         />
 
-        <text content="" />
+        {/* ── Message area ── */}
+        {terminal.messages.length === 0 ? (
+          <text content="" />
+        ) : (
+          terminal.messages.slice(-(dims.height - 12)).map((msg) => {
+            let color: string = theme.fg.muted;
+            if (msg.type === "sent") color = theme.text.sent;
+            else if (msg.type === "received") color = theme.text.received;
+            else if (msg.type === "error") color = theme.fg.danger;
+            else if (msg.type === "system") color = theme.fg.muted;
 
-        {/* ── Message log ── */}
-        {terminal.messages.map((msg) => {
-          let color: string = theme.fg.muted;
-          if (msg.type === "sent") color = theme.text.success;
-          else if (msg.type === "received") color = theme.text.received;
-          else if (msg.type === "error") color = theme.fg.danger;
-          else if (msg.type === "system") color = theme.fg.muted;
+            const prefix: Record<string, string> = {
+              sent: "→ ",
+              received: "← ",
+              error: "⚠ ",
+            };
 
-          const prefix: Record<string, string> = {
-            sent: "→ ",
-            received: "← ",
-            error: "⚠ ",
-          };
-
-          return (
-            <text
-              key={msg.id}
-              content={`${prefix[msg.type] ?? "  "}${msg.text}`}
-              fg={color}
-            />
-          );
-        })}
-
-        {/* ── Command input (visible when connected) ── */}
-        {terminal.connected && (
-          <box flexDirection="column" gap={0}>
-            <text content="" />
-            <box flexDirection="row" gap={1}>
-              <text content="$" fg={theme.fg.success} attributes={TextAttributes.BOLD} />
-              <input
-                placeholder="Type a command..."
-                value={terminal.command}
-                onInput={terminal.setCommand}
-                onSubmit={handleSend}
-                width={resp.inputWidth}
-                textColor={theme.fg.default}
-                backgroundColor="transparent"
-                cursorColor={theme.fg.accent}
+            return (
+              <text
+                key={msg.id}
+                content={`${prefix[msg.type] ?? "  "}${msg.text}`}
+                fg={color}
               />
-            </box>
+            );
+          })
+        )}
+
+        {/* ── Input line ── */}
+        {terminal.connected && (
+          <box flexDirection="row" gap={1} marginTop={1}>
+            <text content="$" fg={theme.fg.accent} attributes={TextAttributes.BOLD} />
+            <input
+              placeholder="Type command..."
+              value={terminal.command}
+              onInput={terminal.setCommand}
+              onSubmit={handleSend}
+              width={termWidth - 3}
+              textColor={theme.fg.default}
+              backgroundColor="transparent"
+              cursorColor={theme.fg.accent}
+            />
           </box>
         )}
+
+        {/* ── Bottom frame ── */}
+        <text
+          content={t`${fg(theme.border.terminal)(
+            `└${"─".repeat(termWidth)}┘`,
+          )}`}
+        />
       </box>
 
-      {/* ── Baud rate selector modal ── */}
-      <Modal
-        open={showBaudSelector}
-        title="Select Baud Rate"
-        width={36}
-      >
-        {BAUD_RATES.map((rate, i) => (
-          <text
-            key={rate}
-            content={`${i === baudSelectorIndex ? "▸ " : "  "}${rate}`}
-            fg={
-              i === baudSelectorIndex ? theme.fg.accent : theme.fg.muted
-            }
-            attributes={
-              i === baudSelectorIndex ? TextAttributes.BOLD : 0
-            }
-          />
-        ))}
-        <text content="" />
-        <ModalHelp
-          items={[
-            { key: "↑↓", label: "Navigate" },
-            { key: "Enter", label: "Select" },
-            { key: "Esc", label: "Cancel" },
-          ]}
-        />
-      </Modal>
+      {/* ── Baud selector modal ── */}
+      {showBaudSelector && (
+        <box
+          position="absolute"
+          alignItems="center"
+          justifyContent="center"
+          width="100%"
+          height="100%"
+          backgroundColor={theme.bg.overlay}
+        >
+          <box
+            borderStyle="rounded"
+            borderColor={theme.fg.accent}
+            backgroundColor={theme.bg.elevated}
+            padding={2}
+            width={34}
+            flexDirection="column"
+            gap={1}
+          >
+            <text
+              content=">_ SELECT BAUD RATE"
+              fg={theme.fg.accent}
+              attributes={TextAttributes.BOLD}
+            />
+            <text content={"─".repeat(30)} fg={theme.border.default} />
+            {BAUD_RATES.map((rate, i) => (
+              <text
+                key={rate}
+                content={`${i === baudSelectorIndex ? "▸ " : "  "}${rate}`}
+                fg={
+                  i === baudSelectorIndex ? theme.fg.accent : theme.fg.muted
+                }
+                attributes={
+                  i === baudSelectorIndex ? TextAttributes.BOLD : 0
+                }
+              />
+            ))}
+            <text content="" />
+            <text content=" ↑↓ Navigate  │  Enter Select  │  Esc Cancel" fg={theme.fg.dim} />
+          </box>
+        </box>
+      )}
 
       {/* ── Connect overlay ── */}
       {!terminal.connected && !showBaudSelector && (
@@ -228,58 +253,46 @@ export function TerminalScreen({ port, onBack }: TerminalScreenProps) {
           <box
             borderStyle="rounded"
             borderColor={
-              terminal.connecting
-                ? theme.fg.accent
-                : theme.border.success
+              terminal.connecting ? theme.fg.accent : theme.border.success
             }
             backgroundColor={theme.bg.elevated}
             padding={3}
-            width={Math.min(48, resp.width - 6)}
+            width={46}
             flexDirection="column"
             gap={1}
           >
             {terminal.connecting ? (
               <>
                 <text
-                  content="⏳  Connecting..."
+                  content="⏳  CONNECTING..."
                   fg={theme.fg.accent}
                   attributes={TextAttributes.BOLD}
                 />
                 <text
-                  content={`Attempting to open ${port.name}...`}
+                  content={`Opening ${port.name} @ ${terminal.baudRate} baud...`}
                   fg={theme.fg.muted}
                 />
               </>
             ) : (
               <>
-                <box justifyContent="center" marginBottom={1}>
-                  <Badge variant="info">{port.name}</Badge>
-                </box>
-
                 <text
-                  content={`Connect to ${port.name}?`}
-                  fg={theme.fg.default}
+                  content=">_ CONNECT TO PORT"
+                  fg={theme.fg.accent}
                   attributes={TextAttributes.BOLD}
                 />
+                <text content={"─".repeat(40)} fg={theme.border.default} />
                 <text
-                  content={`Baud Rate: ${terminal.baudRate}`}
+                  content={`  ${port.name}  —  ${port.description}`}
+                  fg={theme.fg.default}
+                />
+                <text
+                  content={`  Baud Rate: ${terminal.baudRate}`}
                   fg={theme.fg.muted}
                 />
-
                 <text content="" />
-
-                <text
-                  content="  Press Enter to connect"
-                  fg={theme.fg.accent}
-                />
-                <text
-                  content="  Press Tab to change baud rate"
-                  fg={theme.fg.muted}
-                />
-                <text
-                  content="  Press Esc to go back"
-                  fg={theme.fg.dim}
-                />
+                <text content="  Enter — Connect" fg={theme.fg.success} />
+                <text content="  Tab   — Change baud rate" fg={theme.fg.muted} />
+                <text content="  Esc   — Back" fg={theme.fg.dim} />
               </>
             )}
           </box>
@@ -287,23 +300,41 @@ export function TerminalScreen({ port, onBack }: TerminalScreenProps) {
       )}
 
       {/* ── Status bar ── */}
-      {!terminal.connected ? (
-        <StatusBar
-          items={[
-            { key: "Tab", label: "Baud rate" },
-            { key: "Enter", label: "Connect", accent: true },
-            { key: "Esc", label: "Back" },
-          ]}
-        />
-      ) : (
-        <StatusBar
-          items={[
-            { key: "Type +", label: "Enter", accent: true },
-            { key: "", label: "to send" },
-            { key: "Esc", label: "Disconnect", color: theme.fg.danger },
-          ]}
-        />
-      )}
+      <box
+        height={2}
+        borderStyle="single"
+        borderColor={theme.border.muted}
+        backgroundColor={theme.bg.header}
+        alignItems="center"
+        paddingLeft={3}
+        paddingRight={3}
+      >
+        {!terminal.connected ? (
+          <box flexDirection="row" gap={2} alignItems="center">
+            <text content="Tab" fg={theme.fg.dim} />
+            <text content="Baud rate" fg={theme.fg.muted} />
+            <text content="┃" fg={theme.border.default} />
+            <text content="Enter" fg={theme.fg.accent} attributes={1} />
+            <text content="Connect" fg={theme.fg.accent} />
+            <text content="┃" fg={theme.border.default} />
+            <text content="Esc" fg={theme.fg.danger} attributes={1} />
+            <text content="Back" fg={theme.fg.danger} />
+            <box flexGrow={1} />
+            <text content={port.name} fg={theme.fg.dim} />
+          </box>
+        ) : (
+          <box flexDirection="row" gap={2} alignItems="center">
+            <text content="Type +" fg={theme.fg.dim} />
+            <text content="Enter" fg={theme.fg.accent} attributes={1} />
+            <text content="to send" fg={theme.fg.muted} />
+            <text content="┃" fg={theme.border.default} />
+            <text content="Esc" fg={theme.fg.danger} attributes={1} />
+            <text content="Disconnect" fg={theme.fg.danger} />
+            <box flexGrow={1} />
+            <text content={`${terminal.messages.length} messages`} fg={theme.fg.dim} />
+          </box>
+        )}
+      </box>
     </box>
   );
 }

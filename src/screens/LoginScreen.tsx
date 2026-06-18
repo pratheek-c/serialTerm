@@ -1,25 +1,36 @@
 import { TextAttributes } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import { useState, useCallback } from "react";
-import { AppLayout, CenterContent } from "../components/layout/AppLayout";
-import { Card } from "../components/ui/Card";
-import { LabeledInput, FormHelp } from "../components/ui/Input";
+import { AsciiLogo, VersionBadge } from "../components/AsciiLogo";
+import { LabeledInput } from "../components/LabeledInput";
 import { theme } from "../types";
 import { authenticate } from "../services/authService";
-import { useResponsive } from "../hooks/useResponsive";
 
 interface LoginScreenProps {
   onLogin: (username: string) => void;
 }
 
 /**
- * LoginScreen — macOS Terminal-styled authentication gateway.
+ * LoginScreen — split-screen Cyberpunk Terminal login.
  *
- * Responsive card: full-width on narrow terminals,
- * centered at a comfortable 54–58 cols on wide ones.
+ * ┌──────────────────────────────────────────────────────┐
+ * │  ┌─ ASCII LOGO ──┐    ┌─ LOGIN FORM ──────────┐     │
+ * │  │    ██████╗     │    │  >_ Device Management │     │
+ * │  │    ██╔══██╗    │    │                       │     │
+ * │  │    ██║  ██║    │    │  Username             │     │
+ * │  │    ██║  ██║    │    │ ┌──────────────────┐  │     │
+ * │  │    ██████╔╝    │    │ │ admin             │  │     │
+ * │  │    ╚═════╝     │    │ └──────────────────┘  │     │
+ * │  │                 │    │  Password             │     │
+ * │  │  [SERIAL v2.1]  │    │ ┌──────────────────┐  │     │
+ * │  │  Tagline...     │    │ │ ****             │  │     │
+ * │  └────────────────┘    │ └──────────────────┘  │     │
+ * │                         │                       │     │
+ * │                         │  Tab Nav Ctrl+C Quit  │     │
+ * │                         └───────────────────────┘     │
+ * └──────────────────────────────────────────────────────┘
  */
 export function LoginScreen({ onLogin }: LoginScreenProps) {
-  const resp = useResponsive();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [focused, setFocused] = useState<"username" | "password">("username");
@@ -51,43 +62,66 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     }
   });
 
-  const inputWidth = resp.isSmall ? resp.width - 12 : resp.loginCardWidth - 8;
-
   return (
-    <AppLayout>
-      <CenterContent>
-        <Card
-          width={resp.loginCardWidth}
+    <box
+      flexGrow={1}
+      flexDirection="column"
+      backgroundColor={theme.bg.base}
+    >
+      {/* ── Main split area ── */}
+      <box flexGrow={1} flexDirection="row" alignItems="center" justifyContent="center">
+        {/* ── Left: Branding ── */}
+        <box
+          width={40}
+          flexDirection="column"
+          gap={2}
+          alignItems="center"
+          marginRight={4}
+        >
+          <AsciiLogo />
+          <text content="" />
+          <VersionBadge />
+          <text
+            content="Serial Port Management Console"
+            fg={theme.fg.muted}
+            attributes={TextAttributes.DIM}
+          />
+          <text
+            content="For embedded systems & industrial debug"
+            fg={theme.fg.dim}
+          />
+        </box>
+
+        {/* ── Right: Login form ── */}
+        <box
+          borderStyle="rounded"
+          borderColor={theme.border.default}
+          backgroundColor={theme.bg.surface}
+          width={46}
           padding={3}
+          flexDirection="column"
           gap={1}
         >
-          {/* ── App Title ── */}
-          <box justifyContent="center" marginBottom={1}>
-            <text
-              content="Device Management System"
-              fg={theme.fg.accent}
-              attributes={TextAttributes.BOLD}
-            />
-          </box>
-
-          {/* ── Divider ── */}
-          <box justifyContent="center">
-            <text content="─── Login ───" fg={theme.fg.dim} />
-          </box>
-
+          {/* Form header */}
+          <text
+            content=">_ AUTHENTICATION REQUIRED"
+            fg={theme.fg.accent}
+            attributes={TextAttributes.BOLD}
+          />
+          <text content={"─".repeat(42)} fg={theme.border.default} />
           <text content="" />
 
-          {/* ── Username ── */}
+          {/* Username */}
           <LabeledInput
             label="Username"
             placeholder="Enter username..."
             value={username}
             onInput={setUsername}
             focused={focused === "username" && !authenticating}
-            width={inputWidth}
+            width={38}
           />
 
-          {/* ── Password ── */}
+          {/* Password */}
           <box marginTop={1}>
             <LabeledInput
               label="Password"
@@ -96,36 +130,40 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               onInput={setPassword}
               onSubmit={handleSubmit}
               focused={focused === "password" && !authenticating}
-              width={inputWidth}
+              width={38}
             />
           </box>
 
-          {/* ── Error ── */}
+          {/* Error */}
           {error && (
-            <box marginTop={1} paddingLeft={2}>
+            <box marginTop={1}>
               <text content={`⚠  ${error}`} fg={theme.fg.danger} />
             </box>
           )}
 
-          {/* ── Loading ── */}
+          {/* Loading */}
           {authenticating && (
-            <box marginTop={1} paddingLeft={2}>
+            <box marginTop={1}>
               <text content="⏳  Authenticating..." fg={theme.fg.muted} />
             </box>
           )}
 
           <text content="" />
 
-          {/* ── Shortcuts ── */}
-          <FormHelp
-            items={[
-              { key: "Tab", label: "Switch field" },
-              { key: "Enter", label: "Login" },
-              { key: "Ctrl+C", label: "Quit" },
-            ]}
+          {/* Help */}
+          <text content=" Tab — Switch field" fg={theme.fg.dim} />
+          <text content=" Enter — Authenticate" fg={theme.fg.accent} attributes={TextAttributes.BOLD} />
+          <text content=" Ctrl+C — Quit" fg={theme.fg.dim} />
+
+          {/* Demo credentials hint */}
+          <text content="" />
+          <text
+            content="Demo: admin/admin, user/1234"
+            fg={theme.fg.dim}
+            attributes={TextAttributes.DIM}
           />
-        </Card>
-      </CenterContent>
-    </AppLayout>
+        </box>
+      </box>
+    </box>
   );
 }

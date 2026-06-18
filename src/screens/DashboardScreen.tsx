@@ -1,14 +1,11 @@
-import { TextAttributes } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
-import { useCallback } from "react";
-import { Header } from "../components/ui/Header";
-import { Card, CardSection, CardFooter } from "../components/ui/Card";
-import { Badge } from "../components/ui/Badge";
-import { SectionHeader } from "../components/ui/Select";
-import { StatusBar } from "../components/ui/StatusBar";
-import { PanelGroup } from "../components/layout/AppLayout";
+import { useCallback, useState, useEffect } from "react";
+import { Sidebar } from "../components/Sidebar";
+import { DataTable } from "../components/DataTable";
+import { LogPanel, makeLog } from "../components/LogPanel";
+import { ConnStats } from "../components/ConnStats";
 import { useComPorts } from "../hooks/useComPorts";
-import type { ComPortInfo } from "../types";
+import type { ComPortInfo, NavItem, LogEntry } from "../types";
 import { theme } from "../types";
 
 interface DashboardScreenProps {
@@ -18,11 +15,25 @@ interface DashboardScreenProps {
 }
 
 /**
- * DashboardScreen — macOS Terminal-style COM port manager.
+ * DashboardScreen — Cyberpunk Terminal dashboard.
  *
- * Responsive layout:
- * - ≥ 60 cols: side-by-side port list (left) + detail panel (right)
- * - < 60 cols: stacked vertically
+ * Layout:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │  ┌──────┐  ┌── CONNECTION STATS ──────────────────┐    │
+ * │  │      │  │  Connected: 3  Disconnected: 2  ...  │    │
+ * │  │ SIDE │  ├───────────────────────────────────────┤    │
+ * │  │ BAR  │  │  SERIAL PORT TABLE                    │    │
+ * │  │      │  │  ┌─────┬──────┬──────┬──────┬──────┐  │    │
+ * │  │      │  │  │PORT │ NAME │STATUS│ BAUD │DESC  │  │    │
+ * │  │      │  │  ├─────┼──────┼──────┼──────┼──────┤  │    │
+ * │  │      │  │  │COM3 │USB...│● ACT │9600  │FTDI  │  │    │
+ * │  │      │  │  └─────┴──────┴──────┴──────┴──────┘  │    │
+ * │  │      │  ├── SYSTEM LOG ─────────────────────────┤    │
+ * │  │      │  │  [14:23:10] • Scanning...             │    │
+ * │  │      │  │  [14:23:11] ✓ Found 5 ports           │    │
+ * │  └──────┘  └───────────────────────────────────────┘    │
+ * │  Status: ↑↓ Navigate  Enter Open  Esc Logout           │
+ * └─────────────────────────────────────────────────────────┘
  */
 export function DashboardScreen({
   username,
@@ -37,16 +48,44 @@ export function DashboardScreen({
     error,
     selectedIndex,
     setSelectedIndex,
-    selectedPort,
     refresh,
-    lastRefresh,
   } = useComPorts();
 
-  const handleSelect = useCallback(() => {
-    if (selectedPort && selectedPort.status === "active") {
-      onSelectPort(selectedPort);
+  const [activeNav, setActiveNav] = useState<NavItem>("serial-ports");
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  // Push initial log entries
+  useEffect(() => {
+    if (!loading && !error) {
+      setLogs((prev) => [
+        ...prev,
+        makeLog(`Scanning serial ports...`, "info"),
+        makeLog(`Found ${ports.length} serial port(s)`, "success"),
+        makeLog(`Scan completed successfully`, "success"),
+      ].slice(-50));
     }
-  }, [selectedPort, onSelectPort]);
+  }, [loading, error, ports.length]);
+
+  const handleSelect = useCallback(() => {
+    const port = ports[selectedIndex];
+    if (port && port.status === "active") {
+      setLogs((prev) => [
+        ...prev,
+        makeLog(`Opening ${port.name}...`, "info"),
+      ]);
+      onSelectPort(port);
+    }
+  }, [ports, selectedIndex, onSelectPort]);
+
+  const handleRefresh = useCallback(() => {
+    setLogs((prev) => [...prev, makeLog(`Initiating port scan...`, "info")]);
+    refresh().then(() => {
+      setLogs((prev) => [
+        ...prev,
+        makeLog(`Scan refresh triggered`, "success"),
+      ]);
+    });
+  }, [refresh]);
 
   useKeyboard((key) => {
     switch (key.name) {
@@ -65,226 +104,18 @@ export function DashboardScreen({
         onLogout();
         break;
       case "r":
-        if (!key.ctrl) refresh();
+        if (!key.ctrl) handleRefresh();
         break;
     }
   });
 
-  // ─── Port list content ──────────────────────────────────────
-  const portList = (
-    <Card title="📡  COM Ports">
-      <CardSection
-        label={`${ports.length} port${ports.length !== 1 ? "s" : ""}`}
-        right={<text content="[R]efresh" fg={theme.fg.dim} />}
-        flexGrow={1}
-        padding={1}
-      >
-        {/* Loading */}
-        {loading && (
-          <box alignItems="center" justifyContent="center" height={8}>
-            <text content=" Scanning ports..." fg={theme.fg.muted} />
-          </box>
-        )}
-
-        {/* Error */}
-        {!loading && error && (
-          <box alignItems="center" justifyContent="center" height={8}>
-            <text content={`⚠  ${error}`} fg={theme.fg.danger} />
-          </box>
-        )}
-
-        {/* Empty */}
-        {!loading && !error && ports.length === 0 && (
-          <box alignItems="center" justifyContent="center" height={8}>
-            <text content=" No COM ports detected" fg={theme.fg.muted} />
-          </box>
-        )}
-
-        {/* Ports */}
-        {!loading && !error && ports.length > 0 && (
-          <box flexDirection="column" gap={0}>
-            {/* ── Active section ── */}
-            <SectionHeader
-              label="ACTIVE"
-              count={activePorts.length}
-              color={theme.text.success}
-            />
-
-            {activePorts.length === 0 ? (
-              <text content="  (none detected)" fg={theme.fg.dim} />
-            ) : (
-              activePorts.map((port) => {
-                const idx = ports.indexOf(port);
-                const isSel = idx === selectedIndex;
-                return (
-                  <box
-                    key={port.name}
-                    flexDirection="column"
-                    backgroundColor={
-                      isSel ? theme.bg.selected : "transparent"
-                    }
-                    paddingLeft={2}
-                  >
-                    <text
-                      content={`  ● ${port.name}`}
-                      fg={isSel ? theme.fg.accent : theme.text.success}
-                      attributes={isSel ? TextAttributes.BOLD : 0}
-                    />
-                    <text
-                      content={`     ${port.description}${port.baudRate ? `  │  ${port.baudRate}` : ""}`}
-                      fg={isSel ? theme.fg.muted : theme.fg.dim}
-                    />
-                  </box>
-                );
-              })
-            )}
-
-            <text content="" />
-
-            {/* ── Inactive section ── */}
-            <SectionHeader
-              label="INACTIVE"
-              count={inactivePorts.length}
-              color={theme.fg.danger}
-            />
-
-            {inactivePorts.length === 0 ? (
-              <text content="  (none)" fg={theme.fg.dim} />
-            ) : (
-              inactivePorts.map((port) => {
-                const idx = ports.indexOf(port);
-                const isSel = idx === selectedIndex;
-                return (
-                  <box
-                    key={port.name}
-                    backgroundColor={
-                      isSel ? theme.bg.selected : "transparent"
-                    }
-                    paddingLeft={2}
-                  >
-                    <text
-                      content={`  ○ ${port.name}`}
-                      fg={isSel ? theme.fg.accent : theme.fg.dim}
-                      attributes={
-                        isSel ? TextAttributes.BOLD : TextAttributes.DIM
-                      }
-                    />
-                    <text
-                      content={`     ${port.description}`}
-                      fg={theme.fg.dim}
-                    />
-                  </box>
-                );
-              })
-            )}
-          </box>
-        )}
-      </CardSection>
-
-      <CardFooter>
-        <text content="↑↓" fg={theme.fg.dim} />
-        <text content="Navigate" fg={theme.fg.muted} />
-        <text content="┃" fg={theme.border.default} />
-        <text content="Enter" fg={theme.fg.accent} attributes={1} />
-        <text content="Select" fg={theme.fg.accent} />
-      </CardFooter>
-    </Card>
-  );
-
-  // ─── Detail panel content ───────────────────────────────────
-  const detailPanel = (
-    <Card title="ℹ  Port Details">
-      <CardSection flexGrow={1} padding={2}>
-        {selectedPort ? (
-          <box flexDirection="column" gap={1}>
-            {/* Port identity */}
-            <box flexDirection="row" gap={2}>
-              <text content="Port:" fg={theme.fg.muted} />
-              <text
-                content={selectedPort.name}
-                fg={theme.fg.default}
-                attributes={TextAttributes.BOLD}
-              />
-            </box>
-
-            {/* Description */}
-            <box flexDirection="row" gap={2}>
-              <text content="Desc:" fg={theme.fg.muted} />
-              <text
-                content={selectedPort.description || "—"}
-                fg={theme.fg.muted}
-              />
-            </box>
-
-            {/* Baud rate */}
-            {selectedPort.baudRate && (
-              <box flexDirection="row" gap={2}>
-                <text content="Baud:" fg={theme.fg.muted} />
-                <text content={selectedPort.baudRate} fg={theme.fg.muted} />
-              </box>
-            )}
-
-            {/* Status */}
-            <box flexDirection="row" gap={2}>
-              <text content="Status:" fg={theme.fg.muted} />
-              <Badge
-                variant={
-                  selectedPort.status === "active" ? "active" : "inactive"
-                }
-                bold
-              >
-                {selectedPort.status.toUpperCase()}
-              </Badge>
-            </box>
-
-            <text content="" />
-
-            {/* Action hint */}
-            {selectedPort.status === "active" ? (
-              <box flexDirection="column" gap={0}>
-                <text
-                  content="  Press Enter to open terminal"
-                  fg={theme.fg.accent}
-                />
-                <text
-                  content="  and communicate with this device."
-                  fg={theme.fg.accent}
-                />
-              </box>
-            ) : (
-              <text
-                content="  Port is inactive or unavailable."
-                fg={theme.fg.danger}
-              />
-            )}
-          </box>
-        ) : (
-          <box
-            alignItems="center"
-            justifyContent="center"
-            flexGrow={1}
-            height={6}
-          >
-            <text
-              content=" Select a COM port to view details"
-              fg={theme.fg.dim}
-            />
-          </box>
-        )}
-      </CardSection>
-
-      {/* Last refresh */}
-      <box
-        height={1}
-        alignItems="center"
-        paddingLeft={2}
-      >
-        <text
-          content={`Last refreshed: ${lastRefresh.toLocaleTimeString()}`}
-          fg={theme.fg.dim}
-        />
-      </box>
-    </Card>
+  const handleNav = useCallback(
+    (item: NavItem) => {
+      setActiveNav(item);
+      if (item === "exit") onLogout();
+      if (item === "serial-ports") handleRefresh();
+    },
+    [onLogout, handleRefresh],
   );
 
   return (
@@ -293,26 +124,69 @@ export function DashboardScreen({
       flexDirection="column"
       backgroundColor={theme.bg.base}
     >
-      {/* ── Top bar ── */}
-      <Header
-        icon="◆"
-        title="Device Management System"
-        rightLabel="User:"
-        rightContent={username}
-      />
+      {/* ── Main row: Sidebar + Content ── */}
+      <box flexGrow={1} flexDirection="row">
+        {/* Left sidebar */}
+        <Sidebar
+          activeItem={activeNav}
+          username={username}
+          onNavigate={handleNav}
+        />
 
-      {/* ── Main content ── */}
-      <PanelGroup left={portList} right={detailPanel} />
+        {/* Right content area */}
+        <box flexGrow={1} flexDirection="column">
+          {/* Connection stats bar */}
+          <ConnStats
+            connected={activePorts.length}
+            disconnected={inactivePorts.length}
+            total={ports.length}
+            username={username}
+          />
+
+          {/* Main content: table + log */}
+          <box flexGrow={1} flexDirection="column" padding={1} gap={1}>
+            {/* Serial port table */}
+            <DataTable
+              ports={ports}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
+              onConnect={onSelectPort}
+              loading={loading}
+              error={error}
+            />
+
+            {/* Log panel */}
+            <LogPanel entries={logs} height={6} />
+          </box>
+        </box>
+      </box>
 
       {/* ── Status bar ── */}
-      <StatusBar
-        items={[
-          { key: "↑↓", label: "Navigate" },
-          { key: "Enter", label: "Select", accent: true },
-          { key: "Esc", label: "Logout" },
-          { key: "R", label: "Refresh" },
-        ]}
-      />
+      <box
+        height={2}
+        borderStyle="single"
+        borderColor={theme.border.muted}
+        backgroundColor={theme.bg.header}
+        alignItems="center"
+        paddingLeft={3}
+        paddingRight={3}
+      >
+        <box flexDirection="row" gap={2} alignItems="center">
+          <text content="↑↓" fg={theme.fg.dim} />
+          <text content="Navigate" fg={theme.fg.muted} />
+          <text content="┃" fg={theme.border.default} />
+          <text content="Enter" fg={theme.fg.accent} attributes={1} />
+          <text content="Open" fg={theme.fg.accent} />
+          <text content="┃" fg={theme.border.default} />
+          <text content="R" fg={theme.fg.cyan} attributes={1} />
+          <text content="Rescan" fg={theme.fg.cyan} />
+          <text content="┃" fg={theme.border.default} />
+          <text content="Esc" fg={theme.fg.danger} attributes={1} />
+          <text content="Logout" fg={theme.fg.danger} />
+        </box>
+        <box flexGrow={1} />
+        <text content={`${ports.length} device(s)`} fg={theme.fg.dim} />
+      </box>
     </box>
   );
 }

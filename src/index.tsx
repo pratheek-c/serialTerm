@@ -6,28 +6,17 @@ import { DashboardScreen } from "./screens/DashboardScreen";
 import { TerminalScreen } from "./screens/TerminalScreen";
 import type { Screen, ComPortInfo } from "./types";
 
-/**
- * App — top-level screen router.
- *
- * Manages three screens:
- *   login     → authentication gateway
- *   dashboard → COM port listing with detail panel
- *   terminal  → serial communication terminal
- */
 function App() {
   const [screen, setScreen] = useState<Screen>({ name: "login" });
 
-  /** Login succeeded → go to dashboard. */
   const handleLogin = useCallback((username: string) => {
     setScreen({ name: "dashboard", username });
   }, []);
 
-  /** Logout → return to login screen. */
   const handleLogout = useCallback(() => {
     setScreen({ name: "login" });
   }, []);
 
-  /** User selected an active port → open terminal. */
   const handleSelectPort = useCallback(
     (port: ComPortInfo) => {
       const current = screen;
@@ -38,7 +27,6 @@ function App() {
     [screen],
   );
 
-  /** Terminal back → return to dashboard. */
   const handleBackToDashboard = useCallback(() => {
     const current = screen;
     if (current.name === "terminal") {
@@ -49,7 +37,6 @@ function App() {
   switch (screen.name) {
     case "login":
       return <LoginScreen onLogin={handleLogin} />;
-
     case "dashboard":
       return (
         <DashboardScreen
@@ -58,7 +45,6 @@ function App() {
           onLogout={handleLogout}
         />
       );
-
     case "terminal":
       return (
         <TerminalScreen
@@ -66,16 +52,10 @@ function App() {
           onBack={handleBackToDashboard}
         />
       );
-
     default:
       return <LoginScreen onLogin={handleLogin} />;
   }
 }
 
-// ─── Bootstrap ───
-
-const renderer = await createCliRenderer({
-  exitOnCtrlC: true,
-});
-
+const renderer = await createCliRenderer({ exitOnCtrlC: true });
 createRoot(renderer).render(<App />);

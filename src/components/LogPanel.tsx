@@ -8,9 +8,6 @@ interface LogPanelProps {
 
 let _logId = 0;
 
-/**
- * Create a log entry.
- */
 export function makeLog(
   text: string,
   level: LogEntry["level"] = "info",
@@ -23,28 +20,24 @@ export function makeLog(
   };
 }
 
-const levelFg: Record<LogEntry["level"], string> = {
-  info: theme.fg.muted,
-  success: theme.fg.success,
-  warn: theme.fg.warning,
-  error: theme.fg.danger,
-};
-
-const levelPrefix: Record<LogEntry["level"], string> = {
-  info: " •",
-  success: " ✓",
-  warn: " ⚠",
-  error: " ✗",
+const LEVEL_STYLE: Record<LogEntry["level"], { prefix: string; color: string }> = {
+  info:    { prefix: "•",   color: theme.fg.grey },
+  success: { prefix: "✓",  color: theme.fg.green },
+  warn:    { prefix: "⚠", color: theme.fg.yellow },
+  error:   { prefix: "✖", color: theme.fg.red },
 };
 
 /**
- * LogPanel — a scrollable, timestamped system log at the bottom of the dashboard.
+ * LogPanel — scrollable system log with severity-coloured prefixes.
  *
- * [14:23:10] • Scanning serial ports...
- * [14:23:11] ✓ Found 5 serial port(s)
- * [14:23:12] ✓ Scan completed successfully
+ * [14:23:10] •  Scanning serial ports...
+ * [14:23:11] ✓  Found 5 serial port(s)
+ * [14:23:12] ✓  Scan completed
  */
-export function LogPanel({ entries, height = 8 }: LogPanelProps) {
+export function LogPanel({ entries, height = 10 }: LogPanelProps) {
+  // Show most recent entries, up to `height` lines
+  const visible = entries.slice(-height);
+
   return (
     <box
       flexDirection="column"
@@ -52,47 +45,33 @@ export function LogPanel({ entries, height = 8 }: LogPanelProps) {
       borderStyle="single"
       borderColor={theme.border.default}
     >
-      {/* Header */}
+      {/* ── Header ── */}
       <box
         height={2}
         alignItems="center"
         paddingLeft={2}
         backgroundColor={theme.bg.header}
       >
-        <text
-          content=">_ SYSTEM LOG"
-          fg={theme.fg.accent}
-          attributes={TextAttributes.BOLD}
-        />
+        <text content="SYSTEM LOG" fg={theme.fg.white} attributes={TextAttributes.BOLD} />
+        <box flexGrow={1} />
+        <text content={`${entries.length} entries`} fg={theme.fg.grey} />
       </box>
 
-      {/* Log entries */}
-      <box
-        flexDirection="column"
-        gap={0}
-        height={height}
-        paddingLeft={2}
-        paddingTop={1}
-      >
-        {entries.length === 0 ? (
+      {/* ── Body ── */}
+      <box flexDirection="column" gap={0} height={height} paddingLeft={2} paddingTop={1}>
+        {visible.length === 0 ? (
           <text content="  No log entries yet." fg={theme.fg.dim} />
         ) : (
-          entries.map((entry) => (
-            <box key={entry.id} flexDirection="row" gap={2}>
-              <text
-                content={`[${entry.timestamp}]`}
-                fg={theme.fg.dim}
-              />
-              <text
-                content={levelPrefix[entry.level]}
-                fg={levelFg[entry.level]}
-              />
-              <text
-                content={entry.text}
-                fg={levelFg[entry.level]}
-              />
-            </box>
-          ))
+          visible.map((entry) => {
+            const s = LEVEL_STYLE[entry.level];
+            return (
+              <box key={entry.id} flexDirection="row" gap={1}>
+                <text content={`[${entry.timestamp}]`} fg={theme.fg.dim} />
+                <text content={s.prefix} fg={s.color} attributes={TextAttributes.BOLD} />
+                <text content={entry.text} fg={s.color} />
+              </box>
+            );
+          })
         )}
       </box>
     </box>

@@ -45,7 +45,7 @@ export function useComPorts(): UseComPortsResult {
   }, [refresh]);
 
   const activePorts = ports.filter((p) => p.status === "active");
-  const inactivePorts = ports.filter((p) => p.status === "inactive");
+  const inactivePorts = ports.filter((p) => p.status !== "active");
   const selectedPort = ports[selectedIndex];
 
   return {

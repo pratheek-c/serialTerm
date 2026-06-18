@@ -56,7 +56,7 @@ async function getPortsFromWmi(): Promise<ComPortInfo[]> {
   return items.map((item) => ({
     name: item.Name || "Unknown",
     description: item.Description || "Serial Port",
-    status: item.Status?.toLowerCase() === "ok" ? ("active" as const) : ("inactive" as const),
+    status: item.Status?.toLowerCase() === "ok" ? ("active" as const) : ("idle" as const),
     baudRate: item.Baud ? `${item.Baud} bps` : undefined,
   }));
 }

@@ -11,8 +11,7 @@ interface LabeledInputProps {
 }
 
 /**
- * Cyberpunk-styled input: dark background, thin border,
- * accent-coloured border on focus, subtle label above.
+ * Cyberpunk input — dark bg, thin border, cyan glow on focus.
  */
 export function LabeledInput({
   label,
@@ -27,7 +26,7 @@ export function LabeledInput({
 
   return (
     <box flexDirection="column" gap={0}>
-      <text content={`  ${label}`} fg={theme.fg.muted} />
+      <text content={`  ${label}`} fg={theme.fg.grey} />
       <box borderStyle="single" borderColor={borderColor}>
         <input
           placeholder={placeholder ?? `Enter ${label.toLowerCase()}...`}
@@ -36,9 +35,9 @@ export function LabeledInput({
           onSubmit={onSubmit}
           focused={focused}
           width={width}
-          textColor={theme.fg.default}
+          textColor={theme.fg.white}
           backgroundColor={theme.bg.input}
-          cursorColor={theme.fg.accent}
+          cursorColor={theme.fg.cyan}
         />
       </box>
     </box>

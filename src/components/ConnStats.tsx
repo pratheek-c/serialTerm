@@ -2,25 +2,28 @@ import { TextAttributes } from "@opentui/core";
 import { theme } from "../types";
 
 interface ConnStatsProps {
-  connected: number;
-  disconnected: number;
   total: number;
+  active: number;
+  busy: number;
+  errors: number;
   username?: string;
 }
 
 /**
- * Connection statistics bar — rendered at the top of the dashboard.
- * Shows counts of connected/disconnected/total devices.
+ * ConnStats — dashboard metrics bar (k9s-style).
+ *
+ *  Ports Found: 4   Connected: 3   Busy: 1   Errors: 0   │ ● admin
  */
 export function ConnStats({
-  connected,
-  disconnected,
   total,
+  active,
+  busy,
+  errors,
   username,
 }: ConnStatsProps) {
   return (
     <box
-      height={3}
+      height={2}
       backgroundColor={theme.bg.header}
       alignItems="center"
       justifyContent="space-between"
@@ -29,28 +32,26 @@ export function ConnStats({
       borderStyle="single"
       borderColor={theme.border.muted}
     >
-      {/* Left: stats */}
-      <box alignItems="center" gap={3}>
-        <text content="◈" fg={theme.fg.accent} attributes={TextAttributes.BOLD} />
-        <box flexDirection="row" gap={1}>
-          <text content="Connected:" fg={theme.fg.muted} />
-          <text content={String(connected)} fg={theme.fg.success} attributes={TextAttributes.BOLD} />
-        </box>
-        <box flexDirection="row" gap={1}>
-          <text content="Disconnected:" fg={theme.fg.muted} />
-          <text content={String(disconnected)} fg={theme.fg.danger} attributes={TextAttributes.BOLD} />
-        </box>
-        <box flexDirection="row" gap={1}>
-          <text content="Total:" fg={theme.fg.muted} />
-          <text content={String(total)} fg={theme.fg.default} />
-        </box>
+      {/* Left: metrics */}
+      <box alignItems="center" gap={2}>
+        <text content="Ports Found:" fg={theme.fg.grey} />
+        <text content={String(total)} fg={theme.fg.white} attributes={TextAttributes.BOLD} />
+        <text content="│" fg={theme.border.default} />
+        <text content="Connected:" fg={theme.fg.grey} />
+        <text content={String(active)} fg={theme.fg.green} attributes={TextAttributes.BOLD} />
+        <text content="│" fg={theme.border.default} />
+        <text content="Busy:" fg={theme.fg.grey} />
+        <text content={String(busy)} fg={theme.fg.yellow} attributes={TextAttributes.BOLD} />
+        <text content="│" fg={theme.border.default} />
+        <text content="Errors:" fg={theme.fg.grey} />
+        <text content={String(errors)} fg={theme.fg.red} attributes={TextAttributes.BOLD} />
       </box>
 
       {/* Right: user */}
       {username && (
         <box alignItems="center" gap={1}>
-          <text content="@" fg={theme.fg.dim} />
-          <text content={username} fg={theme.fg.cyan} attributes={TextAttributes.BOLD} />
+          <text content="●" fg={theme.fg.green} />
+          <text content={username.toUpperCase()} fg={theme.fg.cyan} attributes={TextAttributes.BOLD} />
         </box>
       )}
     </box>

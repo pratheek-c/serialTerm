@@ -8,27 +8,39 @@ interface SidebarProps {
 }
 
 /**
- * Left navigation sidebar.
- * Renders vertically-stacked nav items with icon + label.
- * The active item is highlighted with the accent colour.
+ * Sidebar — k9s-style compact navigation panel.
+ *
+ * ├────────────────┤
+ * │ DMS TERMINAL   │
+ * ├────────────────┤
+ * │▶ Ports         │  ← active
+ * │  Connections   │
+ * │  Logs          │
+ * │  Settings      │
+ * │  About         │
+ * │  Exit          │
+ * ├────────────────┤
+ * │ @admin         │
+ * └────────────────┘
  */
 export function Sidebar({ activeItem, username, onNavigate }: SidebarProps) {
   return (
     <box
-      width={22}
+      width={18}
       flexDirection="column"
       backgroundColor={theme.bg.sidebar}
       borderStyle="single"
       borderColor={theme.border.default}
     >
-      {/* ── Sidebar header ── */}
+      {/* ── Header ── */}
       <box
-        height={3}
+        height={2}
         alignItems="center"
         justifyContent="center"
         backgroundColor={theme.bg.header}
       >
-        <text content=">_ DMS" fg={theme.fg.accent} attributes={TextAttributes.BOLD} />
+        <text content="DMS" fg={theme.fg.cyan} attributes={TextAttributes.BOLD} />
+        <text content=" TERMINAL" fg={theme.fg.grey} />
       </box>
 
       {/* ── Nav items ── */}
@@ -38,22 +50,27 @@ export function Sidebar({ activeItem, username, onNavigate }: SidebarProps) {
           return (
             <box
               key={item.id}
-              height={3}
+              height={2}
               alignItems="center"
-              paddingLeft={2}
-              gap={2}
+              paddingLeft={1}
+              gap={1}
               backgroundColor={
                 isActive ? theme.bg.selected : "transparent"
               }
             >
+              {/* Selection indicator */}
+              <text
+                content={isActive ? "▶" : " "}
+                fg={isActive ? theme.fg.cyan : "transparent"}
+                attributes={TextAttributes.BOLD}
+              />
               <text
                 content={item.icon}
-                fg={isActive ? theme.fg.accent : theme.fg.dim}
-                attributes={isActive ? TextAttributes.BOLD : 0}
+                fg={isActive ? theme.fg.cyan : theme.fg.dim}
               />
               <text
                 content={item.label}
-                fg={isActive ? theme.fg.accent : theme.fg.muted}
+                fg={isActive ? theme.fg.white : theme.fg.grey}
                 attributes={isActive ? TextAttributes.BOLD : 0}
               />
             </box>
@@ -61,7 +78,7 @@ export function Sidebar({ activeItem, username, onNavigate }: SidebarProps) {
         })}
       </box>
 
-      {/* ── Footer: username ── */}
+      {/* ── Footer ── */}
       {username && (
         <box
           height={2}
@@ -71,7 +88,8 @@ export function Sidebar({ activeItem, username, onNavigate }: SidebarProps) {
           borderColor={theme.border.muted}
           backgroundColor={theme.bg.header}
         >
-          <text content={`@${username}`} fg={theme.fg.dim} />
+          <text content="@" fg={theme.fg.dim} />
+          <text content={username} fg={theme.fg.cyan} />
         </box>
       )}
     </box>

@@ -11,24 +11,8 @@ interface LoginScreenProps {
 }
 
 /**
- * LoginScreen — split-screen Cyberpunk Terminal login.
- *
- * ┌──────────────────────────────────────────────────────┐
- * │  ┌─ ASCII LOGO ──┐    ┌─ LOGIN FORM ──────────┐     │
- * │  │    ██████╗     │    │  >_ Device Management │     │
- * │  │    ██╔══██╗    │    │                       │     │
- * │  │    ██║  ██║    │    │  Username             │     │
- * │  │    ██║  ██║    │    │ ┌──────────────────┐  │     │
- * │  │    ██████╔╝    │    │ │ admin             │  │     │
- * │  │    ╚═════╝     │    │ └──────────────────┘  │     │
- * │  │                 │    │  Password             │     │
- * │  │  [SERIAL v2.1]  │    │ ┌──────────────────┐  │     │
- * │  │  Tagline...     │    │ │ ****             │  │     │
- * │  └────────────────┘    │ └──────────────────┘  │     │
- * │                         │                       │     │
- * │                         │  Tab Nav Ctrl+C Quit  │     │
- * │                         └───────────────────────┘     │
- * └──────────────────────────────────────────────────────┘
+ * LoginScreen — split-screen Cyberpunk login.
+ * ASCII logo on left, authentication form on right.
  */
 export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [username, setUsername] = useState("");
@@ -56,40 +40,20 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
   useKeyboard((key) => {
     if (key.name === "tab" && !authenticating) {
-      setFocused((prev) =>
-        prev === "username" ? "password" : "username",
-      );
+      setFocused((prev) => (prev === "username" ? "password" : "username"));
     }
   });
 
   return (
-    <box
-      flexGrow={1}
-      flexDirection="column"
-      backgroundColor={theme.bg.base}
-    >
-      {/* ── Main split area ── */}
+    <box flexGrow={1} flexDirection="column" backgroundColor={theme.bg.base}>
       <box flexGrow={1} flexDirection="row" alignItems="center" justifyContent="center">
         {/* ── Left: Branding ── */}
-        <box
-          width={40}
-          flexDirection="column"
-          gap={2}
-          alignItems="center"
-          marginRight={4}
-        >
+        <box width={40} flexDirection="column" gap={2} alignItems="center" marginRight={4}>
           <AsciiLogo />
           <text content="" />
           <VersionBadge />
-          <text
-            content="Serial Port Management Console"
-            fg={theme.fg.muted}
-            attributes={TextAttributes.DIM}
-          />
-          <text
-            content="For embedded systems & industrial debug"
-            fg={theme.fg.dim}
-          />
+          <text content="Serial Port Management Console" fg={theme.fg.grey} attributes={TextAttributes.DIM} />
+          <text content="For embedded systems & industrial debug" fg={theme.fg.dim} />
         </box>
 
         {/* ── Right: Login form ── */}
@@ -102,16 +66,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           flexDirection="column"
           gap={1}
         >
-          {/* Form header */}
-          <text
-            content=">_ AUTHENTICATION REQUIRED"
-            fg={theme.fg.accent}
-            attributes={TextAttributes.BOLD}
-          />
+          <text content=">_ AUTHENTICATION REQUIRED" fg={theme.fg.cyan} attributes={TextAttributes.BOLD} />
           <text content={"─".repeat(42)} fg={theme.border.default} />
           <text content="" />
 
-          {/* Username */}
           <LabeledInput
             label="Username"
             placeholder="Enter username..."
@@ -121,7 +79,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             width={38}
           />
 
-          {/* Password */}
           <box marginTop={1}>
             <LabeledInput
               label="Password"
@@ -134,34 +91,24 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             />
           </box>
 
-          {/* Error */}
           {error && (
             <box marginTop={1}>
-              <text content={`⚠  ${error}`} fg={theme.fg.danger} />
+              <text content={`⚠  ${error}`} fg={theme.fg.red} />
             </box>
           )}
 
-          {/* Loading */}
           {authenticating && (
             <box marginTop={1}>
-              <text content="⏳  Authenticating..." fg={theme.fg.muted} />
+              <text content="⏳  Authenticating..." fg={theme.fg.grey} />
             </box>
           )}
 
           <text content="" />
-
-          {/* Help */}
           <text content=" Tab — Switch field" fg={theme.fg.dim} />
-          <text content=" Enter — Authenticate" fg={theme.fg.accent} attributes={TextAttributes.BOLD} />
+          <text content=" Enter — Authenticate" fg={theme.fg.cyan} attributes={TextAttributes.BOLD} />
           <text content=" Ctrl+C — Quit" fg={theme.fg.dim} />
-
-          {/* Demo credentials hint */}
           <text content="" />
-          <text
-            content="Demo: admin/admin, user/1234"
-            fg={theme.fg.dim}
-            attributes={TextAttributes.DIM}
-          />
+          <text content="Demo: admin/admin, user/1234" fg={theme.fg.dim} attributes={TextAttributes.DIM} />
         </box>
       </box>
     </box>

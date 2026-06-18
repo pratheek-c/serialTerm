@@ -1,29 +1,46 @@
 import { TextAttributes } from "@opentui/core";
 import { theme } from "../types";
 
+type DotStatus = "active" | "busy" | "idle" | "error";
+
 interface StatusDotProps {
-  status: "active" | "inactive" | "success" | "error" | "warning";
+  status: DotStatus;
   label?: string;
+  /** Show the label inline after the dot (default true). */
+  showLabel?: boolean;
 }
 
-const dotMap = {
-  active:   { char: "●", color: theme.fg.success },
-  inactive: { char: "○", color: theme.fg.dim },
-  success:  { char: "●", color: theme.fg.success },
-  error:    { char: "●", color: theme.fg.danger },
-  warning:  { char: "●", color: theme.fg.warning },
+const dotStyle: Record<DotStatus, { char: string; color: string }> = {
+  active: { char: "●", color: theme.fg.green },
+  busy:   { char: "◐", color: theme.fg.yellow },
+  idle:   { char: "○", color: theme.fg.dim },
+  error:  { char: "✖", color: theme.fg.red },
+};
+
+const labelMap: Record<DotStatus, string> = {
+  active: "ACTIVE",
+  busy:   "BUSY",
+  idle:   "IDLE",
+  error:  "ERROR",
 };
 
 /**
- * A single coloured dot with optional label — compact status indicator.
+ * StatusDot — coloured status icon with optional label.
+ *
+ *   ● ACTIVE    ◐ BUSY    ○ IDLE    ✖ ERROR
  */
-export function StatusDot({ status, label }: StatusDotProps) {
-  const d = dotMap[status];
+export function StatusDot({
+  status,
+  label,
+  showLabel = true,
+}: StatusDotProps) {
+  const d = dotStyle[status];
+  const lbl = label ?? labelMap[status];
 
   return (
     <box flexDirection="row" gap={1} alignItems="center">
       <text content={d.char} fg={d.color} attributes={TextAttributes.BOLD} />
-      {label && <text content={label} fg={d.color} />}
+      {showLabel && <text content={lbl} fg={d.color} />}
     </box>
   );
 }
